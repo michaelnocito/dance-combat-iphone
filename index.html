@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08080c">
+<title>Dance Combat Lab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #08080c;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #canvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    /* JS will set width/height */
+  }
+  /* Touch button overlay */
+  #controls {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 160px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 12px 12px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #controls.hidden { display: none; }
+  .btn-group {
+    display: flex;
+    gap: 8px;
+    pointer-events: all;
+  }
+  .btn {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.5);
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    cursor: pointer;
+    -webkit-touch-callout: none;
+    transition: background 0.1s, border-color 0.1s;
+    line-height: 1.2;
+    text-align: center;
+  }
+  .btn:active, .btn.active {
+    background: rgba(0,240,255,0.25);
+    border-color: #00f0ff;
+  }
+  .btn.btn-parry { border-color: rgba(255,220,0,0.5); }
+  .btn.btn-parry:active, .btn.btn-parry.active { background: rgba(255,220,0,0.25); border-color: #ffd700; }
+  .btn.btn-block { border-color: rgba(80,200,255,0.5); }
+  .btn.btn-block:active, .btn.btn-block.active { background: rgba(80,200,255,0.25); border-color: #50c8ff; }
+  .btn.btn-fin { border-color: rgba(255,60,100,0.5); }
+  .btn.btn-fin:active, .btn.btn-fin.active { background: rgba(255,60,100,0.25); border-color: #ff3c64; }
+  #overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(8,8,12,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    padding: 20px;
+  }
+  #overlay.hidden { display: none; }
+  .overlay-title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #00f0ff;
+    letter-spacing: 3px;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .overlay-sub {
+    font-size: 13px;
+    color: #788090;
+    text-align: center;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  .level-list {
+    width: 100%;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .level-item {
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.04);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.15s;
+  }
+  .level-item.selected {
+    background: rgba(0,240,255,0.1);
+    border-color: rgba(0,240,255,0.5);
+  }
+  .level-item:active { opacity: 0.7; }
+  .level-name { font-size: 14px; font-weight: bold; color: #e6e6f5; }
+  .level-sub  { font-size: 11px; color: #788090; margin-top: 2px; }
+  .level-bpm  { font-size: 13px; font-weight: bold; }
+  .play-btn {
+    width: 100%;
+    max-width: 340px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 2px solid #00f0ff;
+    background: rgba(0,240,255,0.15);
+    color: #00f0ff;
+    font-size: 18px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .play-btn:active { background: rgba(0,240,255,0.3); }
+  #gameover-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(8,8,12,0.88);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    gap: 16px;
+  }
+  #gameover-overlay.hidden { display: none; }
+  .go-title { font-size: 36px; font-weight: bold; color: #ff3c64; letter-spacing: 3px; }
+  .go-btn {
+    padding: 14px 32px;
+    border-radius: 10px;
+    border: 2px solid #00f0ff;
+    background: rgba(0,240,255,0.15);
+    color: #00f0ff;
+    font-size: 16px;
+    font-weight: bold;
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+    letter-spacing: 1px;
+  }
+  .go-btn:active { background: rgba(0,240,255,0.3); }
+  .go-btn.secondary { border-color: #788090; color: #788090; background: none; }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<!-- Title / Level Select Overlay -->
+<div id="overlay">
+  <div class="overlay-title">DANCE COMBAT</div>
+  <div class="overlay-sub">Tap PARRY before the enemy strikes<br>then LIGHT or HEAVY to combo</div>
+  <div class="level-list" id="levelList"></div>
+  <button class="play-btn" id="playBtn">PLAY</button>
+</div>
+
+<!-- Game Over Overlay -->
+<div id="gameover-overlay" class="hidden">
+  <div class="go-title">GAME OVER</div>
+  <button class="go-btn" id="restartBtn">RESTART</button>
+  <button class="go-btn secondary" id="titleBtn">TITLE</button>
+</div>
+
+<!-- Touch Controls -->
+<div id="controls" class="hidden">
+  <!-- Left side: Parry + Block -->
+  <div class="btn-group">
+    <div class="btn btn-parry" id="btnParry">PARRY<br>V</div>
+    <div class="btn btn-block" id="btnBlock">BLOCK<br>C</div>
+  </div>
+  <!-- Right side: Light + Heavy + Finisher -->
+  <div class="btn-group">
+    <div class="btn" id="btnLight">LIGHT<br>Z</div>
+    <div class="btn" id="btnHeavy">HEAVY<br>X</div>
+    <div class="btn btn-fin" id="btnFin">FIN<br>F</div>
+  </div>
+</div>
+
+<script>
+// =============================================================
+// DANCE COMBAT LAB — iPhone Version
+// Side-scrolling beat combat, optimized for iPhone 12 & earlier
+// =============================================================
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// ── Screen sizing (iPhone 12 target: 390×844, older: 375×667) ──
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2); // cap at 2x for perf
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(DPR, DPR);
+  GROUND_Y = H - 160; // leave room for buttons
+}
+window.addEventListener('resize', resize);
+
+// ── Palette ──
+const C = {
+  bg:       '#08080c',
+  gndA:     '#101018',
+  gndB:     '#141420',
+  panel:    '#12121c',
+  border:   'rgba(80,80,120,0.6)',
+  txt:      '#e6e6f5',
+  dim:      '#788090',
+  faint:    'rgba(120,128,144,0.4)',
+  cyan:     '#00f0ff',
+  cyanDim:  'rgba(0,240,255,0.3)',
+  pink:     '#ff3c64',
+  gold:     '#ffd700',
+  green:    '#00ff9f',
+  purple:   '#b43cff',
+  blue:     '#507aff',
+  white:    '#ffffff',
+  ringGood: '#00ff9f',
+  ringMid:  '#ffd700',
+  ringMiss: '#ff3c64',
+};
+
+// ── Constants ──
+let GROUND_Y = 300;
+const WALK_SPEED    = 90;
+const ATTACK_RANGE  = 180;
+const LIGHT_DMG     = 8;
+const HEAVY_DMG     = 18;
+const FIN_BASE      = 30;
+const FIN_SCALE     = 14;
+const TELE_DUR      = 0.55;
+const BLOCK_CHIP    = 3;
+const BLOCK_STAGGER = 1.5;
+const PHP_MAX       = 100;
+const STAGGER_DUR   = 0.5;
+const REST_DUR      = 2.0;
+const WAVE_DUR      = 0.6;
+const SLOWMO_DUR    = 0.25;
+const SLOWMO_SCALE  = 0.28;
+const ENEMY_OFFSET  = 420;
+const ENEMIES_PER   = 3;
+const RING_R        = 60; // smaller for mobile
+const RING_TRACK    = 8;
+
+// ── BPM ramp L1→L5 ──
+const LEVEL_BPMS = [36, 45, 54, 63, 72];
+function bps(bpm) { return 60.0 / bpm; }
+
+// ── Enemy styles ──
+const ENEMY_STYLES = [
+  { body: '#ff3c64', acc: '#ff8ca0', shape: 'rect'    },
+  { body: '#507aff', acc: '#8caeff', shape: 'round'   },
+  { body: '#b43cff', acc: '#d880ff', shape: 'diamond' },
+  { body: '#00dc78', acc: '#50ffa0', shape: 'cross'   },
+  { body: '#ffb400', acc: '#ffd700', shape: 'star'    },
+];
+
+// ── Level definitions ──
+const LEVELS = [
+  {
+    name: 'Level 1 – Pulse', sub: 'Wide windows. Feel it.',
+    color: '#00f0ff', beatCdMin: 4, beatCdMax: 5,
+    parryWin: 0.80, onBeatWin: 0.30,
+    ringStart: 3.0, ringMin: 0.60, ringTighten: 0.02,
+    eDmg: 6, onBeatBonus: 1.0,
+    halfBeat: false, chargeVis: false,
+    tips: ['Watch the BEAT bar', 'Tap PARRY before flash', 'Then LIGHT or HEAVY'],
+  },
+  {
+    name: 'Level 2 – On-Beat', sub: 'Parry on the beat = 1.5×',
+    color: '#507aff', beatCdMin: 3, beatCdMax: 4,
+    parryWin: 0.60, onBeatWin: 0.22,
+    ringStart: 2.5, ringMin: 0.40, ringTighten: 0.03,
+    eDmg: 9, onBeatBonus: 1.5,
+    halfBeat: false, chargeVis: true,
+    tips: ['Parry on cyan notch = 1.5×', 'Watch charge ring grow', 'Chain LIGHT then HEAVY'],
+  },
+  {
+    name: 'Level 3 – Rhythm', sub: 'Half-beats. Stay sharp.',
+    color: '#b43cff', beatCdMin: 2, beatCdMax: 4,
+    parryWin: 0.50, onBeatWin: 0.20,
+    ringStart: 2.2, ringMin: 0.32, ringTighten: 0.05,
+    eDmg: 11, onBeatBonus: 1.5,
+    halfBeat: true, chargeVis: true,
+    tips: ['Half-beats active', 'Parry ready between beats', 'Ring tighter – commit!'],
+  },
+  {
+    name: 'Level 4 – Phrase', sub: 'Read 4-beat bars.',
+    color: '#00dc78', beatCdMin: 2, beatCdMax: 3,
+    parryWin: 0.42, onBeatWin: 0.17,
+    ringStart: 2.0, ringMin: 0.26, ringTighten: 0.07,
+    eDmg: 13, onBeatBonus: 1.5,
+    halfBeat: true, chargeVis: true, phraseFlash: true,
+    tips: ['Beat 1 pulses bright', 'Combo the full bar', 'FIN on beat 1 = max dmg'],
+  },
+  {
+    name: 'Level 5 – Flow', sub: 'Dense. Trust the groove.',
+    color: '#ffd700', beatCdMin: 1, beatCdMax: 2,
+    parryWin: 0.35, onBeatWin: 0.14,
+    ringStart: 1.8, ringMin: 0.20, ringTighten: 0.09,
+    eDmg: 16, onBeatBonus: 1.75,
+    halfBeat: true, chargeVis: true, phraseFlash: true,
+    tips: ['Everything live', '1.75× on-beat bonus', 'Let go and flow'],
+  },
+];
+
+// =============================================================
+// AUDIO (Web Audio API — no external files)
+// =============================================================
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+  return audioCtx;
+}
+
+function playSine(freq, dur, vol, when = 0) {
+  const ac = getAudio();
+  const t  = ac.currentTime + when;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.frequency.value = freq;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(vol, t + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(gain); gain.connect(ac.destination);
+  osc.start(t); osc.stop(t + dur + 0.01);
+}
+
+function playNoise(dur, vol, when = 0) {
+  const ac = getAudio();
+  const t  = ac.currentTime + when;
+  const buf = ac.createBuffer(1, Math.floor(ac.sampleRate * dur), ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const src  = ac.createBufferSource();
+  const gain = ac.createGain();
+  src.buffer = buf;
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(gain); gain.connect(ac.destination);
+  src.start(t); src.stop(t + dur + 0.01);
+}
+
+function playBeat(isBar1) {
+  if (isBar1) { playSine(110, 0.18, 0.4); playSine(220, 0.10, 0.2); }
+  else         { playSine(80,  0.12, 0.25); playNoise(0.04, 0.15); }
+}
+
+function playLight()  { playSine(1200,0.05,0.3); playSine(1800,0.04,0.2,0.04); }
+function playHeavy()  { playSine(80,0.12,0.4);   playSine(55,0.10,0.3,0.04); }
+function playParry()  { playSine(600,0.08,0.35); }
+function playOnBeat() { playSine(880,0.09,0.4); }
+function playPerf()   { playSine(760,0.07,0.35); playSine(1100,0.06,0.25,0.05); }
+function playHurt()   { playSine(90,0.12,0.3); }
+function playFin()    { playSine(65,0.18,0.45); playSine(1400,0.10,0.3,0.05); playNoise(0.06,0.5,0.08); }
+function playDjScratch() {
+  // down sweep
+  const ac = getAudio();
+  const t = ac.currentTime;
+  const osc = ac.createOscillator();
+  const g   = ac.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(300, t);
+  osc.frequency.linearRampToValueAtTime(70, t + 0.20);
+  g.gain.setValueAtTime(0.5, t);
+  g.gain.linearRampToValueAtTime(0, t + 0.20);
+  osc.connect(g); g.connect(ac.destination);
+  osc.start(t); osc.stop(t + 0.22);
+  // noise crackle
+  playNoise(0.18, 0.3, 0.15);
+  // up sweep
+  const osc2 = ac.createOscillator();
+  const g2   = ac.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(80, t + 0.32);
+  osc2.frequency.linearRampToValueAtTime(320, t + 0.55);
+  g2.gain.setValueAtTime(0, t + 0.32);
+  g2.gain.linearRampToValueAtTime(0.5, t + 0.55);
+  osc2.connect(g2); g2.connect(ac.destination);
+  osc2.start(t + 0.32); osc2.stop(t + 0.57);
+}
+function playDance(i) { playSine([330,415,494,622,740][i] || 330, 0.09, 0.25); }
+
+// =============================================================
+// GAME STATE
+// =============================================================
+let state = 'title'; // 'title' | 'game' | 'gameover' | 'levelcomplete'
+let levelIdx = 0;
+
+// Per-game state
+let g = {};
+
+function ringDur(combo, lv) {
+  return Math.max(lv.ringMin, lv.ringStart - combo * lv.ringTighten);
+}
+
+function spawnEnemy(worldX, waveNum, lvIdx) {
+  const lv    = LEVELS[lvIdx];
+  const scale = 1.0 + waveNum * 0.45;
+  const w     = Math.floor(44 * scale);
+  const h     = Math.floor(72 * scale);
+  const maxHp = 240 + waveNum * 120;
+  const style = ENEMY_STYLES[lvIdx % ENEMY_STYLES.length];
+  const min   = Math.max(1, lv.beatCdMin - Math.floor(waveNum / 2));
+  const max   = Math.max(min + 1, lv.beatCdMax - Math.floor(waveNum / 2));
+  return {
+    worldX: worldX + ENEMY_OFFSET,
+    w, h, hp: maxHp, maxHp,
+    telegraph: 0, flashing: false,
+    beatsUntilAtk: 3, chargeBeats: 0,
+    halfHit: false, style, wave: waveNum,
+    atkCdMin: min, atkCdMax: max, stagger: 0,
+  };
+}
+
+function eRect(e) {
+  return { x: e.worldX - g.worldX, y: GROUND_Y - e.h, w: e.w, h: e.h };
+}
+
+function startGame(lvIdx) {
+  levelIdx = lvIdx;
+  const lv = LEVELS[lvIdx];
+  const baseBpm = LEVEL_BPMS[lvIdx];
+
+  g = {
+    lv, baseBpm,
+    worldX: 0,
+    php: PHP_MAX,
+    waveNum: 0,
+    enemy: spawnEnemy(0, 0, lvIdx),
+    // player rect (logical)
+    px: 100, py: 0, pw: 44, ph: 72,
+
+    combo: 0, comboOpen: false, ringT: 0, finReady: false, obOpener: false,
+    hq: null, hqT: 0,
+    gFlash: 0, slowmo: 0, pulse: 0, heatA: 0,
+    waveAnim: false, wT: 0, wCx: 0, wCy: 0, wCc: 0,
+    stagger: 0, blocking: false, parry: false, parryT: 0,
+    beatT: bps(baseBpm), beatInt: bps(baseBpm),
+    beatIdx: 0, beatFlash: 0, tsb: 0,
+    inFight: false, resting: false, restT: 0,
+    gameOver: false, levelComplete: false,
+    msg: '', msgT: 0, obMsg: 0,
+    particles: [],
+    shakeX: 0, shakeY: 0, shakeT: 0, shakeI: 0,
+    tileOff: 0,
+    danceT: 0, danceNoteT: 0, danceNoteI: 0, prevComboTier: 0,
+    djBreakT: 0, djRampT: 0,
+    lastTime: null,
+    tutShown: new Set(),
+    tipT: 0, tipMsg: '',
+  };
+  g.py = GROUND_Y - g.ph;
+
+  if (lv.tips && lv.tips[0]) { g.tipMsg = lv.tips[0]; g.tipT = 5.0; g.tutShown.add(0); }
+
+  hideOverlays();
+  document.getElementById('controls').classList.remove('hidden');
+  state = 'game';
+  requestAnimationFrame(loop);
+}
+
+function hideOverlays() {
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('gameover-overlay').classList.add('hidden');
+}
+
+// =============================================================
+// PARTICLES
+// =============================================================
+function addFloat(x, y, text, color, size = 18, life = 0.9) {
+  g.particles.push({ x: x, y: y, text, color, size, life, age: 0, vy: -55 });
+}
+
+// =============================================================
+// INPUT (touch + keyboard)
+// =============================================================
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key] = true;  handleKey(e.key, true);  });
+window.addEventListener('keyup',   e => { keys[e.key] = false; handleKey(e.key, false); });
+
+function handleKey(k, down) {
+  if (state !== 'game') return;
+  if (!down) {
+    if (k === 'c' || k === 'C') g.blocking = false;
+    return;
+  }
+  if (k === 'v' || k === 'V') doParry();
+  if (k === 'c' || k === 'C') g.blocking = true;
+  if (k === 'z' || k === 'Z') doAttack(true);
+  if (k === 'x' || k === 'X') doAttack(false);
+  if (k === 'f' || k === 'F') doFinisher();
+  if (k === 'r' || k === 'R') { startGame(levelIdx); }
+  if (k === 't' || k === 'T') { showTitle(); }
+  if (k === 'Escape')          { showTitle(); }
+}
+
+// Touch buttons
+function setupBtn(id, onDown, onUp) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  ['touchstart', 'mousedown'].forEach(ev =>
+    el.addEventListener(ev, e => { e.preventDefault(); el.classList.add('active'); onDown && onDown(); }, { passive: false })
+  );
+  ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach(ev =>
+    el.addEventListener(ev, e => { e.preventDefault(); el.classList.remove('active'); onUp && onUp(); }, { passive: false })
+  );
+}
+
+setupBtn('btnParry',  () => doParry(),         null);
+setupBtn('btnBlock',  () => { if (state === 'game') g.blocking = true; },
+                      () => { if (state === 'game') g.blocking = false; });
+setupBtn('btnLight',  () => doAttack(true),    null);
+setupBtn('btnHeavy',  () => doAttack(false),   null);
+setupBtn('btnFin',    () => doFinisher(),      null);
+
+document.getElementById('playBtn').addEventListener('click', () => startGame(levelIdx));
+document.getElementById('restartBtn').addEventListener('click', () => startGame(levelIdx));
+document.getElementById('titleBtn').addEventListener('click', showTitle);
+
+// =============================================================
+// ACTIONS
+// =============================================================
+function doParry() {
+  if (state !== 'game' || g.gameOver || g.levelComplete) return;
+  g.parry = true; g.parryT = g.lv.parryWin;
+}
+
+function isOB() {
+  return g.tsb <= g.lv.onBeatWin || (g.beatInt - g.tsb) <= g.lv.onBeatWin;
+}
+
+function openCombo(ob) {
+  g.comboOpen = true; g.finReady = false; g.obOpener = ob;
+  g.ringT = ringDur(g.combo, g.lv);
+}
+
+function doAttack(isLight) {
+  if (state !== 'game' || g.gameOver || g.levelComplete || g.stagger > 0) return;
+  if (!g.comboOpen || g.ringT <= 0) return;
+  const er = eRect(g.enemy);
+  const dist = (g.px + g.pw) - er.x;
+  if (dist < -20 || dist > ATTACK_RANGE) { g.tipMsg = 'Move closer!'; g.tipT = 0.6; return; }
+  const dmg = isLight ? LIGHT_DMG : HEAVY_DMG;
+  const rd  = ringDur(g.combo, g.lv);
+  const pct = g.ringT / rd;
+  const quality = pct > 0.42 ? 'PERFECT' : 'GOOD';
+  g.hq = quality; g.hqT = 0.65;
+  const bonus  = g.obOpener ? g.lv.onBeatBonus : 1.0;
+  const actual = Math.floor(dmg * bonus);
+  if (quality === 'PERFECT') {
+    playPerf(); g.gFlash = 0.20; g.slowmo = SLOWMO_DUR;
+    triggerShake(6, 0.18);
+    addFloat(er.x + er.w/2, er.y - 20, `+${actual} PERFECT`, C.gold, 20, 1.1);
+  } else {
+    isLight ? playLight() : playHeavy();
+    triggerShake(3, 0.09);
+    addFloat(er.x + er.w/2 + (Math.random()*16-8), er.y - 14, `+${actual}`, comboCol(g.combo), 17, 0.75);
+  }
+  g.enemy.hp -= actual;
+  g.combo++; g.finReady = true;
+  g.ringT = ringDur(g.combo, g.lv);
+  g.heatA = Math.min(50, g.combo * 4);
+  const tier = Math.floor(g.combo / 10);
+  if (tier > g.prevComboTier) {
+    g.prevComboTier = tier;
+    g.danceT = 1.2; g.danceNoteT = 0; g.danceNoteI = 0;
+    addFloat(g.px + g.pw/2, g.py - 30, 'DANCE!', C.gold, 22, 1.4);
+  }
+}
+
+function doFinisher() {
+  if (state !== 'game' || g.gameOver || g.levelComplete || g.stagger > 0) return;
+  if (!g.finReady) return;
+  const er  = eRect(g.enemy);
+  const fdmg = FIN_BASE + g.combo * FIN_SCALE;
+  const actual = g.obOpener ? Math.floor(fdmg * g.lv.onBeatBonus) : fdmg;
+  g.enemy.hp -= actual;
+  playFin();
+  triggerShake(12, 0.30);
+  g.waveAnim = true; g.wT = 0; g.wCx = er.x + er.w/2; g.wCy = er.y + er.h/2; g.wCc = g.combo;
+  addFloat(er.x + er.w/2, er.y - 24, `FINISHER ${actual}`, C.gold, 22, 1.6);
+  g.tipMsg = `FINISHER ${actual} DMG`; g.tipT = 1.8;
+  g.comboOpen = false; g.combo = 0; g.finReady = false; g.heatA = 0; g.prevComboTier = 0;
+}
+
+function triggerShake(i, d) { g.shakeI = i; g.shakeT = d; }
+
+function comboCol(n) {
+  if (n >= 15) return C.pink;
+  if (n >= 10) return C.gold;
+  if (n >= 5)  return C.gold;
+  return C.txt;
+}
+
+// =============================================================
+// GAME LOOP
+// =============================================================
+function loop(ts) {
+  if (state !== 'game') return;
+  if (g.lastTime === null) g.lastTime = ts;
+  const rawDt = Math.min((ts - g.lastTime) / 1000, 0.05);
+  g.lastTime = ts;
+  const dt = g.slowmo > 0 ? rawDt * SLOWMO_SCALE : rawDt;
+  if (g.slowmo > 0) g.slowmo = Math.max(0, g.slowmo - rawDt);
+
+  update(rawDt, dt);
+  draw();
+
+  if (state === 'game') requestAnimationFrame(loop);
+}
+
+function update(rawDt, dt) {
+  const lv = g.lv;
+
+  // shake
+  if (g.shakeT > 0) g.shakeT = Math.max(0, g.shakeT - rawDt);
+
+  // DJ break volume (visual only for web)
+  if (g.djBreakT > 0) g.djBreakT = Math.max(0, g.djBreakT - rawDt);
+  if (g.djRampT  > 0) g.djRampT  = Math.max(0, g.djRampT  - rawDt);
+
+  // dance sequencer
+  if (g.danceT > 0) {
+    g.danceT = Math.max(0, g.danceT - rawDt);
+    g.danceNoteT -= rawDt;
+    if (g.danceNoteT <= 0 && g.danceNoteI < 5) {
+      playDance(g.danceNoteI++);
+      g.danceNoteT = 0.13;
+    }
+  }
+
+  // timers
+  g.stagger  = Math.max(0, g.stagger  - dt);
+  g.parryT   = Math.max(0, g.parryT   - dt);
+  g.gFlash   = Math.max(0, g.gFlash   - dt);
+  g.tipT     = Math.max(0, g.tipT     - dt);
+  g.hqT      = Math.max(0, g.hqT      - dt);
+  g.obMsg    = Math.max(0, g.obMsg    - dt);
+  g.beatFlash = Math.max(0, g.beatFlash - dt);
+  if (g.parryT <= 0) g.parry = false;
+  if (g.enemy.stagger > 0) g.enemy.stagger = Math.max(0, g.enemy.stagger - dt);
+
+  // ring timeout
+  if (g.comboOpen && g.ringT > 0) {
+    g.ringT -= dt;
+    if (g.ringT <= 0) {
+      g.comboOpen = false; g.combo = 0; g.finReady = false; g.heatA = 0; g.prevComboTier = 0;
+      g.stagger = STAGGER_DUR * 0.45; g.tipMsg = 'Too slow!'; g.tipT = 1.0;
+    }
+  }
+
+  // wave anim
+  if (g.waveAnim) { g.wT += rawDt; if (g.wT >= WAVE_DUR) g.waveAnim = false; }
+
+  // particles
+  g.particles = g.particles.filter(p => {
+    p.age += rawDt; p.y += p.vy * rawDt; p.vy *= 0.93;
+    return p.age < p.life;
+  });
+  if (!g.comboOpen) g.heatA = Math.max(0, g.heatA - 1);
+
+  // beat engine
+  g.beatT -= dt; g.tsb += dt;
+  if (g.beatT <= 0) {
+    g.beatInt = bps(g.baseBpm); g.beatT = g.beatInt; g.tsb = 0;
+    g.beatIdx++; g.beatFlash = 0.10;
+    g.pulse = Math.min(1.0, g.combo * 0.08);
+    const isBar1 = g.beatIdx % 4 === 0;
+    playBeat(isBar1);
+    // tutorial tip
+    const tips = lv.tips || [];
+    if (g.beatIdx % 16 === 0 && tips.length) {
+      const nxt = Math.floor(g.beatIdx / 16) % tips.length;
+      if (!g.tutShown.has(nxt)) { g.tutShown.add(nxt); g.tipMsg = tips[nxt]; g.tipT = 4.0; }
+    }
+    if (g.inFight && g.enemy.hp > 0 && !g.resting && !g.comboOpen && g.enemy.stagger <= 0) {
+      if (lv.halfBeat && Math.random() < 0.3) {
+        g.enemy.halfHit = true;
+      } else {
+        g.enemy.beatsUntilAtk--;
+        g.enemy.chargeBeats = g.enemy.beatsUntilAtk;
+        if (g.enemy.beatsUntilAtk <= 0) {
+          g.enemy.telegraph = TELE_DUR;
+          g.enemy.chargeBeats = 0;
+          g.enemy.beatsUntilAtk = g.enemy.atkCdMin + Math.floor(Math.random() * (g.enemy.atkCdMax - g.enemy.atkCdMin + 1));
+        }
+      }
+    }
+  }
+
+  // half-beat attack
+  if (g.inFight && g.enemy.halfHit && g.enemy.hp > 0 && g.enemy.stagger <= 0) {
+    g.enemy.halfHit = false; g.enemy.telegraph = TELE_DUR * 0.7;
+  }
+
+  // walk
+  if (!g.inFight && !g.resting) {
+    g.worldX += WALK_SPEED * rawDt;
+    g.tileOff = (g.tileOff + WALK_SPEED * rawDt) % 120;
+    const er = eRect(g.enemy);
+    if ((g.px + g.pw) >= er.x - 10 && g.enemy.hp > 0) {
+      g.inFight = true;
+      g.tipMsg = `Enemy ${g.waveNum + 1} of ${ENEMIES_PER}!`; g.tipT = 2.5;
+    }
+  } else if (g.resting) {
+    g.restT -= rawDt; g.worldX += WALK_SPEED * rawDt; g.tileOff = (g.tileOff + WALK_SPEED * rawDt) % 120;
+    if (g.restT <= 0) {
+      g.resting = false;
+      if (g.waveNum >= ENEMIES_PER) {
+        g.levelComplete = true;
+        state = 'levelcomplete';
+        showLevelComplete();
+        return;
+      } else {
+        g.enemy = spawnEnemy(g.worldX, g.waveNum, levelIdx);
+        g.tipMsg = `Enemy ${g.waveNum + 1}/${ENEMIES_PER} – bigger!`; g.tipT = 2.5;
+      }
+    }
+  }
+
+  // fight
+  if (g.inFight && g.enemy.hp > 0 && !g.resting) {
+    if (g.enemy.telegraph > 0) {
+      g.enemy.telegraph -= dt; g.enemy.flashing = true;
+      if (g.enemy.telegraph <= 0) {
+        g.enemy.flashing = false;
+        if (g.parry) {
+          const ob = isOB();
+          if (ob) { playOnBeat(); g.obMsg = 1.2; addFloat(g.px + g.pw/2, g.py - 20, 'ON BEAT!', C.gold, 18, 1.0); }
+          else    { playParry(); }
+          openCombo(ob);
+          g.tipMsg = 'PARRY → LIGHT or HEAVY!'; g.tipT = 1.8;
+        } else if (g.blocking) {
+          g.php -= BLOCK_CHIP;
+          g.enemy.stagger = BLOCK_STAGGER;
+          g.enemy.telegraph = 0; g.enemy.flashing = false;
+          g.enemy.beatsUntilAtk = g.enemy.atkCdMin + Math.floor(Math.random() * (g.enemy.atkCdMax - g.enemy.atkCdMin + 1));
+          triggerShake(8, 0.22);
+          playDjScratch();
+          g.djBreakT = 0.55; g.djRampT = 0;
+          addFloat(g.px + g.pw/2 + 30, g.py - 10, 'BLOCK!', C.cyan, 20, 1.2);
+          g.tipMsg = 'BLOCK – enemy stunned!'; g.tipT = 1.5;
+        } else {
+          g.php -= lv.eDmg; g.stagger = STAGGER_DUR;
+          playHurt(); triggerShake(5, 0.14);
+          g.tipMsg = `Hit -${lv.eDmg}hp`; g.tipT = 0.9;
+        }
+        if (g.php <= 0) { g.php = 0; g.gameOver = true; state = 'gameover'; showGameOver(); }
+      }
+    }
+    if (g.enemy.hp <= 0) {
+      g.inFight = false; g.resting = true; g.restT = REST_DUR; g.waveNum++;
+      g.combo = 0; g.comboOpen = false; g.finReady = false; g.heatA = 0; g.prevComboTier = 0;
+      g.enemy.chargeBeats = 0;
+      g.tipMsg = g.waveNum >= ENEMIES_PER ? 'All enemies down!' : `Enemy down! Next: ${g.waveNum + 1}/${ENEMIES_PER}`;
+      g.tipT = REST_DUR;
+    }
+  }
+}
+
+// =============================================================
+// DRAW
+// =============================================================
+function draw() {
+  const lv  = g.lv;
+  let sx = 0, sy = 0;
+  if (g.shakeT > 0) {
+    sx = (Math.random() * 2 - 1) * g.shakeI;
+    sy = (Math.random() * 2 - 1) * g.shakeI;
+  }
+  ctx.save();
+  ctx.translate(sx, sy);
+
+  // Background
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Floor tiles
+  const tileW = 100;
+  const off = g.tileOff % tileW;
+  for (let x = -tileW + off; x < W + tileW; x += tileW) {
+    const even = Math.floor((x - off) / tileW) % 2 === 0;
+    ctx.fillStyle = even ? C.gndA : C.gndB;
+    ctx.fillRect(x, GROUND_Y, tileW, H - GROUND_Y);
+  }
+  // neon ground line
+  ctx.strokeStyle = 'rgba(0,200,220,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(W, GROUND_Y); ctx.stroke();
+
+  // Heat overlay
+  if (g.heatA > 0) {
+    ctx.fillStyle = `rgba(255,60,120,${g.heatA / 200})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Beat flash
+  if (g.beatFlash > 0) {
+    const a = Math.min(0.18, (g.beatFlash / 0.10) * 0.12 + g.pulse * 0.06);
+    ctx.strokeStyle = `rgba(0,240,255,${a})`;
+    ctx.lineWidth = 4 + g.pulse * 4;
+    ctx.strokeRect(2, 2, W - 4, H - 4);
+  }
+
+  // Gold flash on perfect
+  if (g.gFlash > 0) {
+    ctx.fillStyle = `rgba(255,215,0,${(g.gFlash / 0.20) * 0.08})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // DJ break glitch
+  if (g.djBreakT > 0) {
+    const str = g.djBreakT / 0.55;
+    ctx.fillStyle = `rgba(0,200,255,${str * 0.12})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Wave ripple
+  if (g.waveAnim) {
+    const prog = g.wT / WAVE_DUR;
+    for (let ri = 0; ri < 3; ri++) {
+      const off2 = ri * 0.22;
+      const p2 = Math.min(Math.max(prog - off2, 0) / (1 - off2 + 0.001), 1);
+      const r = p2 * (120 + g.wCc * 14);
+      const a = 0.7 * (1 - p2);
+      ctx.strokeStyle = `rgba(0,240,255,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(g.wCx, g.wCy, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // Enemy
+  drawEnemy();
+
+  // Player
+  drawPlayer();
+
+  // Combo ring (centered, compact for mobile)
+  drawRing();
+
+  // Combo counter (top left)
+  drawComboCounter();
+
+  // HUD (top right)
+  drawHUD();
+
+  // Beat bar (bottom above buttons)
+  drawBeatBar();
+
+  // Floating numbers
+  for (const p of g.particles) {
+    ctx.globalAlpha = 1 - p.age / p.life;
+    ctx.fillStyle = p.color;
+    ctx.font = `bold ${p.size}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = 'left';
+
+  // Quality label
+  if (g.hqT > 0 && g.hq) {
+    ctx.fillStyle = g.hq === 'PERFECT' ? C.gold : C.cyan;
+    ctx.font = `bold 22px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(g.hq, W / 2, GROUND_Y - 80);
+  }
+  if (g.obMsg > 0) {
+    ctx.fillStyle = C.gold;
+    ctx.font = `bold 18px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('ON BEAT!', W / 2, GROUND_Y - 106);
+  }
+  ctx.textAlign = 'left';
+
+  // Tip message
+  if (g.tipT > 0 && g.tipMsg) {
+    ctx.fillStyle = C.cyan;
+    ctx.font = `bold 14px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(g.tipMsg, W / 2, GROUND_Y - 14);
+    ctx.textAlign = 'left';
+  }
+
+  ctx.restore();
+}
+
+function drawEnemy() {
+  const e  = g.enemy;
+  if (e.hp <= 0) return;
+  const er = eRect(e);
+  const st = e.style;
+  const staggered = e.stagger > 0;
+  const expand = 0; // no expand on mobile for perf
+
+  // charge progress
+  let cp = 0;
+  const cb = e.chargeBeats;
+  if (g.inFight && !e.flashing && cb > 0 && g.lv.chargeVis && e.stagger <= 0) {
+    cp = 1 - cb / Math.max(g.lv.beatCdMax, 1);
+  }
+
+  let bodyC = st.body;
+  if (staggered)   bodyC = '#303050';
+  else if (e.flashing) bodyC = '#ff3c64';
+  else if (cp > 0.6)   bodyC = st.acc;
+
+  ctx.save();
+  if (staggered) {
+    ctx.translate(Math.sin(e.stagger * 28) * 6, 0);
+  }
+
+  ctx.fillStyle = bodyC;
+  ctx.strokeStyle = staggered ? C.border : st.acc;
+  ctx.lineWidth = 2;
+
+  const cx = er.x + er.w / 2, cy = er.y + er.h / 2;
+
+  if (st.shape === 'rect') {
+    roundRect(ctx, er.x, er.y, er.w, er.h, 5);
+    ctx.fill(); ctx.stroke();
+  } else if (st.shape === 'round') {
+    ctx.beginPath(); ctx.ellipse(cx, cy, er.w/2, er.h/2, 0, 0, Math.PI*2);
+    ctx.fill(); ctx.stroke();
+  } else if (st.shape === 'diamond') {
+    ctx.beginPath();
+    ctx.moveTo(cx, er.y); ctx.lineTo(er.x + er.w, cy);
+    ctx.lineTo(cx, er.y + er.h); ctx.lineTo(er.x, cy);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (st.shape === 'cross') {
+    const tw = Math.max(6, er.w / 3), th = Math.max(6, er.h / 3);
+    ctx.beginPath();
+    ctx.rect(er.x, cy - th/2, er.w, th);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.rect(cx - tw/2, er.y, tw, er.h);
+    ctx.fill(); ctx.stroke();
+  } else if (st.shape === 'star') {
+    const rOut = er.w / 2, rIn = rOut / 2;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const ang = Math.PI / 2 + i * Math.PI / 5;
+      const r = i % 2 === 0 ? rOut : rIn;
+      if (i === 0) ctx.moveTo(cx + r * Math.cos(ang), cy - r * Math.sin(ang));
+      else ctx.lineTo(cx + r * Math.cos(ang), cy - r * Math.sin(ang));
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+
+  // charge ring
+  if (cp > 0.1 && !e.flashing && !staggered && g.lv.chargeVis) {
+    ctx.strokeStyle = `rgba(255,80,40,${cp * 0.8})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, er.w / 2 + 10 + cp * 12, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  ctx.restore();
+
+  // HP bar
+  const bx = er.x, by = er.y - 14, bw = er.w, bh = 6;
+  ctx.fillStyle = '#1a1a2a';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = st.body;
+  ctx.fillRect(bx, by, Math.max(0, bw * e.hp / e.maxHp), bh);
+
+  // label
+  if (staggered) {
+    ctx.fillStyle = C.dim; ctx.font = '11px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('STUNNED', cx, er.y - 18);
+  } else if (e.flashing) {
+    ctx.fillStyle = C.pink; ctx.font = 'bold 11px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('ATTACK!', cx, er.y - 18);
+  } else if (cp > 0.55 && g.lv.chargeVis) {
+    ctx.fillStyle = st.acc; ctx.font = '11px Courier New'; ctx.textAlign = 'center';
+    ctx.fillText('...', cx, er.y - 18);
+  }
+  ctx.textAlign = 'left';
+}
+
+function drawPlayer() {
+  const px = g.px, py = g.py, pw = g.pw, ph = g.ph;
+  let color = C.cyan;
+  if (g.stagger > 0) color = C.pink;
+  else if (g.blocking) color = 'rgba(80,200,255,0.9)';
+
+  if (g.danceT > 0) {
+    // stick figure dance
+    const frames = [[-60,60,8,4],[-80,30,14,8],[-40,80,10,-4],[-100,50,16,10],[-50,90,12,0],[-70,40,6,-6]];
+    const fi = Math.min(Math.floor((1 - g.danceT / 1.2) * frames.length), frames.length - 1);
+    const [la, ra, ls, hb] = frames[fi];
+    const cx2 = px + pw / 2;
+    const byTop = py + ph / 4, byBot = py + ph * 3 / 4;
+    ctx.strokeStyle = color; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx2, byTop); ctx.lineTo(cx2, byBot); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx2, py + ph/8 + hb, pw/4, 0, Math.PI*2); ctx.fillStyle = color; ctx.fill();
+    [[la],[ra]].forEach(([ang]) => {
+      const rad = ang * Math.PI / 180;
+      ctx.beginPath(); ctx.moveTo(cx2, byTop + 3);
+      ctx.lineTo(cx2 + 18 * Math.cos(rad), byTop + 9 * Math.sin(rad)); ctx.stroke();
+    });
+    ctx.beginPath(); ctx.moveTo(cx2, byBot); ctx.lineTo(cx2 - ls, py + ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx2, byBot); ctx.lineTo(cx2 + ls, py + ph); ctx.stroke();
+  } else {
+    ctx.fillStyle = color;
+    roundRect(ctx, px, py, pw, ph, 5);
+    ctx.fill();
+  }
+
+  if (g.parry) {
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 2;
+    roundRect(ctx, px - 4, py - 4, pw + 8, ph + 8, 7); ctx.stroke();
+  }
+
+  // player HP bar
+  const bx = px, by2 = py - 12, bw = pw, bh = 5;
+  ctx.fillStyle = '#1a1a2a'; ctx.fillRect(bx, by2, bw, bh);
+  ctx.fillStyle = C.cyan;
+  ctx.fillRect(bx, by2, Math.max(0, bw * g.php / PHP_MAX), bh);
+}
+
+function drawRing() {
+  if (!g.comboOpen || g.ringT <= 0 || g.enemy.hp <= 0) return;
+  const cx = W / 2;
+  const cy = GROUND_Y - RING_R - 30;
+  const rd  = ringDur(g.combo, g.lv);
+  const pct = g.ringT / rd;
+  const rc  = pct > 0.55 ? C.ringGood : pct > 0.25 ? C.ringMid : C.ringMiss;
+
+  // dark bg
+  ctx.fillStyle = 'rgba(0,10,20,0.7)';
+  ctx.beginPath(); ctx.arc(cx, cy, RING_R + 14, 0, Math.PI * 2); ctx.fill();
+
+  // track
+  ctx.strokeStyle = 'rgba(20,40,50,1)'; ctx.lineWidth = RING_TRACK;
+  ctx.beginPath(); ctx.arc(cx, cy, RING_R, 0, Math.PI * 2); ctx.stroke();
+
+  // ring arc
+  if (pct > 0.01) {
+    ctx.strokeStyle = rc + Math.floor(Math.max(80, 255 * pct)).toString(16).padStart(2,'0');
+    ctx.lineWidth = RING_TRACK;
+    ctx.beginPath();
+    ctx.arc(cx, cy, RING_R, -Math.PI / 2, -Math.PI / 2 + pct * Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // inner fill
+  if (pct > 0.1) {
+    ctx.fillStyle = rc.replace(')', `,${pct * 0.18})`).replace('rgb', 'rgba');
+    ctx.beginPath(); ctx.arc(cx, cy, RING_R - RING_TRACK/2, 0, Math.PI*2); ctx.fill();
+  }
+
+  // perfect tick
+  if (pct > 0.42) {
+    const ty1 = cy - RING_R + RING_TRACK; const ty2 = cy - RING_R - RING_TRACK - 3;
+    ctx.strokeStyle = C.gold; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, ty1); ctx.lineTo(cx, ty2); ctx.stroke();
+  }
+
+  // label
+  ctx.fillStyle = C.white; ctx.font = `bold 15px 'Courier New',monospace`; ctx.textAlign = 'center';
+  ctx.fillText('Z/LIGHT  X/HEAVY', cx, cy + 5);
+  if (g.obOpener) {
+    ctx.fillStyle = C.gold; ctx.font = `bold 12px 'Courier New',monospace`;
+    ctx.fillText(`× ${g.lv.onBeatBonus} ON BEAT`, cx, cy - RING_R - 8);
+  }
+  const fc = g.finReady ? C.cyan : C.dim;
+  ctx.fillStyle = fc; ctx.font = `12px 'Courier New',monospace`;
+  ctx.fillText(`×${g.combo}  |  F=FINISHER`, cx, cy + RING_R + 14);
+
+  // mini progress bar
+  const pbw = RING_R * 2, pbx = cx - RING_R, pby = cy + RING_R + 22;
+  ctx.fillStyle = 'rgba(20,40,50,1)'; ctx.fillRect(pbx, pby, pbw, 5);
+  ctx.fillStyle = rc; ctx.fillRect(pbx, pby, pbw * pct, 5);
+  ctx.textAlign = 'left';
+}
+
+function drawComboCounter() {
+  if (g.combo > 0) {
+    const sc = Math.min(1.4, 1 + g.combo * 0.025);
+    const sz = Math.floor(44 * sc);
+    ctx.fillStyle = comboCol(g.combo);
+    ctx.font = `bold ${sz}px 'Courier New',monospace`;
+    ctx.fillText(`×${g.combo}`, 10, 52);
+  } else {
+    ctx.fillStyle = C.faint;
+    ctx.font = `bold 28px 'Courier New',monospace`;
+    ctx.fillText('×0', 10, 44);
+  }
+  // wave dots
+  for (let d = 0; d < ENEMIES_PER; d++) {
+    const col = d < g.waveNum ? g.lv.color : (d === g.waveNum ? C.dim : 'rgba(50,50,80,0.6)');
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(12 + d * 16, 62, 5, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawHUD() {
+  const lvBpm = LEVEL_BPMS[levelIdx];
+  ctx.fillStyle = 'rgba(18,18,28,0.85)';
+  roundRect(ctx, W - 120, 4, 116, 58, 6); ctx.fill();
+  ctx.fillStyle = g.lv.color; ctx.font = `bold 11px 'Courier New',monospace`;
+  ctx.textAlign = 'right';
+  ctx.fillText(g.lv.name.split('–')[0].trim(), W - 8, 18);
+  ctx.fillStyle = C.dim; ctx.font = `10px 'Courier New',monospace`;
+  ctx.fillText(`${lvBpm} BPM`, W - 8, 31);
+  ctx.fillStyle = C.cyan; ctx.font = `bold 13px 'Courier New',monospace`;
+  ctx.fillText(`HP ${g.php}`, W - 8, 46);
+  ctx.textAlign = 'left';
+}
+
+function drawBeatBar() {
+  const bw = W - 80, bh = 8;
+  const bx = 40, by = GROUND_Y + 10;
+  const prog = 1 - g.beatT / g.beatInt;
+  ctx.fillStyle = 'rgba(20,30,40,0.9)';
+  ctx.fillRect(bx, by, bw, bh);
+  ctx.fillStyle = C.cyan;
+  ctx.fillRect(bx, by, bw * prog, bh);
+  // on-beat notch
+  const nw = Math.max(4, bw * g.lv.onBeatWin / g.beatInt);
+  ctx.fillStyle = C.gold;
+  ctx.fillRect(bx, by - 2, nw, bh + 4);
+  ctx.fillRect(bx + bw - nw, by - 2, nw, bh + 4);
+  ctx.fillStyle = C.dim; ctx.font = `10px 'Courier New',monospace`;
+  ctx.fillText('BEAT', bx - 36, by + 7);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// =============================================================
+// OVERLAY MANAGEMENT
+// =============================================================
+function showTitle() {
+  state = 'title';
+  document.getElementById('controls').classList.add('hidden');
+  document.getElementById('overlay').classList.remove('hidden');
+  document.getElementById('gameover-overlay').classList.add('hidden');
+  buildLevelList();
+  // Draw static title screen on canvas
+  resize();
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+}
+
+function buildLevelList() {
+  const list = document.getElementById('levelList');
+  list.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const el = document.createElement('div');
+    el.className = 'level-item' + (i === levelIdx ? ' selected' : '');
+    el.innerHTML = `
+      <div>
+        <div class="level-name" style="color:${lv.color}">${lv.name}</div>
+        <div class="level-sub">${lv.sub}</div>
+      </div>
+      <div class="level-bpm" style="color:${lv.color}">${LEVEL_BPMS[i]} BPM</div>
+    `;
+    el.addEventListener('click', () => { levelIdx = i; buildLevelList(); });
+    list.appendChild(el);
+  });
+}
+
+function showGameOver() {
+  document.getElementById('controls').classList.add('hidden');
+  document.getElementById('gameover-overlay').classList.remove('hidden');
+}
+
+function showLevelComplete() {
+  document.getElementById('controls').classList.add('hidden');
+  // Show a quick overlay
+  const go = document.getElementById('gameover-overlay');
+  go.classList.remove('hidden');
+  go.querySelector('.go-title').textContent = `LEVEL ${levelIdx + 1} CLEAR!`;
+  go.querySelector('.go-title').style.color = g.lv.color;
+  document.getElementById('restartBtn').textContent = levelIdx + 1 < LEVELS.length ? 'NEXT LEVEL' : 'PLAY AGAIN';
+  document.getElementById('restartBtn').onclick = () => {
+    if (levelIdx + 1 < LEVELS.length) startGame(levelIdx + 1);
+    else startGame(0);
+  };
+  document.getElementById('titleBtn').onclick = showTitle;
+}
+
+// =============================================================
+// INIT
+// =============================================================
+resize();
+showTitle();
+buildLevelList();
+
+// Draw idle background
+ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+ctx.fillStyle = C.cyan;
+ctx.font = `bold 28px 'Courier New',monospace`;
+ctx.textAlign = 'center';
+ctx.fillText('DANCE COMBAT', W/2, H/2 - 20);
+ctx.fillStyle = C.dim; ctx.font = `14px 'Courier New',monospace`;
+ctx.fillText('iPhone Version', W/2, H/2 + 8);
+ctx.textAlign = 'left';
+</script>
+</body>
+</html>
